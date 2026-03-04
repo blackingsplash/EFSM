@@ -1,4 +1,4 @@
-repository  = ""
+repository  = "https://github.com/blackingsplash/EFSM.git"
 version     = "0.1.0"
 name        = "elliemakesmanygames/efsm"
 
