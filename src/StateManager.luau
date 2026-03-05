@@ -1,7 +1,12 @@
-local types = require("./Global/Types")
+export type Context<T> = {
+	_entity: string,
+	_active: boolean,
+	_availableStates: { string },
+	_isRegistered: boolean,
+	content: { [string]: unknown },
+}
 
-type Context<T> = types.EllieContext<T>
-type State<T> = types.EllieState<T>
+type State<T> = (target: T, context: Context<T>) -> ()
 
 type StateManagerInfo = {
 	_runningThread: thread?,
