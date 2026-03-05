@@ -1,13 +1,9 @@
 .DS_Store
 /Packages
+/ServerPackages
 /sourcemap.json
 /*.lock
 /*.rbxl
 /*.rbxlx
 /*.rbxm
 /*.rbxmx
-/.pesde
-/luau_packages
-/lune_packages
-/roblox_packages
-

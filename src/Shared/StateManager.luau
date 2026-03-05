@@ -1,0 +1,106 @@
+local types = require("./Global/Types")
+
+type Context<T> = types.EllieContext<T>
+type State<T> = types.EllieState<T>
+
+type StateManagerInfo = {
+	_runningThread: thread?,
+	_currentStateName: string?,
+	_context: Context<unknown>?,
+}
+
+type StateManager = {
+	init: (ent: string, content: { [string]: unknown }?) -> StateManager,
+	recordStates: (states: { string }) -> (),
+	transition: <T>(self: StateManager, state_name: string, state_callback: State<T>, new_data: T) -> (),
+	destroy: (self: StateManager) -> (),
+}
+
+local StateManager = {}
+StateManager.__index = StateManager
+
+--[=[
+    @function init
+    @within StateManager
+
+    @param entity_id -- string for the entity this state machine is towards.
+    @param content -- the context content that the states will access and modify (Health, MaxHealth, etc.)
+	@return StateManager
+]=]
+function StateManager.init(entity_id: string, content: { [string]: unknown }): StateManager
+	return setmetatable(
+		{
+			_runningThread = nil,
+			_currentStateName = nil,
+			_availableStates = {},
+			_isRegistered = false,
+			_context = {
+				_entity = entity_id,
+				_active = false,
+				content = content,
+			},
+		} :: StateManagerInfo,
+		StateManager
+	)
+end
+
+--[=[
+    @function recordStates
+    @within StateManager
+
+    @param states -- array of state names to record; will be checked when transitioning for states if state exists.
+	@return ()
+]=]
+function StateManager:recordStates(states: { string }): ()
+	if self._isRegistered then
+		return
+	end
+	if #states < 1 then
+		error("states must be an array and must have at least 1 element.")
+	end
+	for _, v in states do
+		table.insert(self._availableStates, v)
+	end
+	self._isRegistered = true
+end
+
+--[=[
+    @function transition
+    @within StateManager
+
+    @param state_name -- target state_name to change to
+    @param state_callback -- basically the function that the state will run to modify. takes in a target_data and a context parameters.
+	@param target_data? -- main data to modify (Position, Rotation, etc.), could be nil.
+	@return ()
+]=]
+function StateManager:transition<T>(state_name: string, state_callback: State<T>, target_data: T?): ()
+	target_data = target_data or {}
+	if self._runningThread then
+		self._context._active = false
+		task.cancel(self._runningThread)
+	end
+	if self._isRegistered and type(table.find(self._availableStates, state_name)) == "number" then
+		error("state is not recorded in finite state machine.")
+	end
+
+	self._currentStateName = state_name
+	self._context._active = true
+	self._runningThread = task.spawn(state_callback, target_data, self._context)
+end
+
+--[=[
+    @function deprecate
+    @within StateManager
+
+	@return ()
+]=]
+function StateManager:destroy(): ()
+	if self._runningThread then
+		task.cancel(self._runningThread)
+	end
+	self._runningThread = nil
+	self._currentStateName = nil
+	self._context = nil
+end
+
+return StateManager :: StateManager
