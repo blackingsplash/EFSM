@@ -6,6 +6,6 @@ authors = ["elliemakesmanygames"]
 version = "0.1.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
-exclude = ["ESFM.code-workspace, sourcemap.json, default.project.json,"]
+exclude = ["ESFM.code-workspace, sourcemap.json, default.project.json, .gitignore"]
 
 [dependencies]
