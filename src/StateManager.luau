@@ -23,14 +23,14 @@ type StateManager = {
 	init: (ent: EntityId, content: { [string]: unknown }?) -> StateManager,
 	recordStates: (states: { string }) -> (),
 	transition: <T>(self: StateManager, state_name: string, state_callback: State<T>, new_data: T) -> (),
+	update: (self: StateManager, new_data: { [string]: unknown }) -> (),
+	destroy: (self: StateManager) -> (),
 	onStateCollision: (
 		self: StateManager,
 		callback: (target: EntityId, c1: Context<unknown>, c2: Context<unknown>) -> ()
 	) -> Disconnect,
-	destroy: (self: StateManager) -> (),
 }
 
-local StateRegistry: { [string]: string } = {}
 local StateManager = {}
 StateManager.__index = StateManager
 
@@ -51,8 +51,6 @@ function StateManager.init(entity_id: EntityId, content: { [string]: unknown }):
 	self._isRegistered = false
 
 	self._context = { _entity = entity_id, _active = false, _content = content, _data = {}, _manager = self }
-
-	StateRegistry[entity_id] = self
 	return self
 end
 
@@ -100,18 +98,16 @@ function StateManager:transition<T>(state_name: string, state_callback: State<T>
 	self._context._data = target_data
 	self._context._active = true
 	self._runningThread = task.spawn(state_callback, self._context)
-
-	StateRegistry[self._context._entity] = state_name
 end
 
 --[=[
     @function update
     @within StateManager
 
-    @param new_data -- table of certain contents to modify
+    @param new_data -- dictionary of certain contents to modify
 	@return ()
 ]=]
-function StateManager:update<T>(new_data: T): ()
+function StateManager:update(new_data: { [string]: unknown }): ()
 	if not self._context._active then
 		error("cannot update new_data")
 	end
