@@ -1,26 +1,36 @@
-export type Context<T> = {
-	_entity: string,
+type EntityId = string | number
+
+type Context<T> = {
+	_entity: EntityId,
 	_active: boolean,
-	_availableStates: { string },
-	_isRegistered: boolean,
+	_data: T,
 	content: { [string]: unknown },
 }
 
-type State<T> = (target: T, context: Context<T>) -> ()
+type State<T> = (context: Context<T>) -> ()
+type Disconnect = () -> ()
 
 type StateManagerInfo = {
 	_runningThread: thread?,
-	_currentStateName: string?,
+	_currentStateName: string,
+	_availableStates: {},
+	_ls: {},
+	_isRegistered: boolean,
 	_context: Context<unknown>?,
 }
 
 type StateManager = {
-	init: (ent: string, content: { [string]: unknown }?) -> StateManager,
+	init: (ent: EntityId, content: { [string]: unknown }?) -> StateManager,
 	recordStates: (states: { string }) -> (),
 	transition: <T>(self: StateManager, state_name: string, state_callback: State<T>, new_data: T) -> (),
+	onStateCollision: (
+		self: StateManager,
+		callback: (target: EntityId, c1: Context<unknown>, c2: Context<unknown>) -> ()
+	) -> Disconnect,
 	destroy: (self: StateManager) -> (),
 }
 
+local StateRegistry: { [string]: string } = {}
 local StateManager = {}
 StateManager.__index = StateManager
 
@@ -28,25 +38,22 @@ StateManager.__index = StateManager
     @function init
     @within StateManager
 
-    @param entity_id -- string for the entity this state machine is towards.
+    @param entity_id -- string or number for the entity this state machine is towards.
     @param content -- the context content that the states will access and modify (Health, MaxHealth, etc.)
 	@return StateManager
 ]=]
-function StateManager.init(entity_id: string, content: { [string]: unknown }): StateManager
-	return setmetatable(
-		{
-			_runningThread = nil,
-			_currentStateName = nil,
-			_availableStates = {},
-			_isRegistered = false,
-			_context = {
-				_entity = entity_id,
-				_active = false,
-				content = content,
-			},
-		} :: StateManagerInfo,
-		StateManager
-	)
+function StateManager.init(entity_id: EntityId, content: { [string]: unknown }): StateManager
+	local self = setmetatable({}, StateManager) :: StateManagerInfo
+	self._runningThread = nil
+	self._currentStateName = "nil"
+	self._availableStates = {}
+	self._ls = {}
+	self._isRegistered = false
+
+	self._context = { _entity = entity_id, _active = false, _content = content, _data = {}, _manager = self }
+
+	StateRegistry[entity_id] = self
+	return self
 end
 
 --[=[
@@ -61,7 +68,7 @@ function StateManager:recordStates(states: { string }): ()
 		return
 	end
 	if #states < 1 then
-		error("states must be an array and must have at least 1 element.")
+		error("states array must have at least one element.")
 	end
 	for _, v in states do
 		table.insert(self._availableStates, v)
@@ -80,21 +87,41 @@ end
 ]=]
 function StateManager:transition<T>(state_name: string, state_callback: State<T>, target_data: T?): ()
 	target_data = target_data or {}
+
+	if self._isRegistered and type(table.find(self._availableStates, state_name)) ~= "number" then
+		error("state is not recorded in finite state machine.")
+	end
 	if self._runningThread then
 		self._context._active = false
 		task.cancel(self._runningThread)
 	end
-	if self._isRegistered and type(table.find(self._availableStates, state_name)) == "number" then
-		error("state is not recorded in finite state machine.")
-	end
 
 	self._currentStateName = state_name
+	self._context._data = target_data
 	self._context._active = true
-	self._runningThread = task.spawn(state_callback, target_data, self._context)
+	self._runningThread = task.spawn(state_callback, self._context)
+
+	StateRegistry[self._context._entity] = state_name
 end
 
 --[=[
-    @function deprecate
+    @function update
+    @within StateManager
+
+    @param new_data -- table of certain contents to modify
+	@return ()
+]=]
+function StateManager:update<T>(new_data: T): ()
+	if not self._context._active then
+		error("cannot update new_data")
+	end
+	for k, v in new_data do
+		self._context._data[k] = v
+	end
+end
+
+--[=[
+    @function destroy
     @within StateManager
 
 	@return ()
