@@ -13,7 +13,7 @@ type Disconnect = () -> ()
 type StateManagerInfo = {
 	_runningThread: thread?,
 	_currentStateName: string,
-	_availableStates: {},
+	_availableStates: { [string]: true },
 	_ls: {},
 	_isRegistered: boolean,
 	_context: Context<unknown>?,
@@ -71,7 +71,7 @@ function StateManager:recordStates(states: { string }): ()
 		error("states array must have at least one element.")
 	end
 	for _, v in states do
-		table.insert(self._availableStates, v)
+		self._availableStates[v] = true
 	end
 	self._isRegistered = true
 end
@@ -88,7 +88,7 @@ end
 function StateManager:transition<T>(state_name: string, state_callback: State<T>, target_data: T?): ()
 	target_data = target_data or {}
 
-	if self._isRegistered and type(table.find(self._availableStates, state_name)) ~= "number" then
+	if self._isRegistered and not self._availableStates then
 		error("state is not recorded in finite state machine.")
 	end
 	if self._runningThread then
