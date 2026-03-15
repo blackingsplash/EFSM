@@ -1,25 +1,11 @@
 {
   "name": "efsm",
-  "legacyScripts": false, 
   "tree": {
     "$className": "DataModel",
-    "ReplicatedStorage": {
-      "Shared": {
-        "$path": "src/Shared"
-      },
-      "Client": {
-        "$path": "src/Client/Main"
-      },
-      "Modules": {
-        "$path": "src/Client/Modules"
-      },
-      "Packages": {
-        "$path": "roblox_packages"
-      }
-    },
     "ReplicatedFirst": {
       "$path": "src/Client/First"
     },
+    "ReplicatedStorage": {},
     "ServerScriptService": {
       "$path": "src/Server/Main"
     },
@@ -31,6 +17,6 @@
         "$path": "src/Stories"
       }
     }
-  }
+  },
+  "legacyScripts": false
 }
-

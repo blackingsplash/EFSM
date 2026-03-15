@@ -1,35 +1,28 @@
--- PRIMITIVE TYPES
-type EntityID = string | number
-
 -- CALLBACK-ASSOCIATED TYPES
 type Disconnect = () -> ()
 type OnTransitionListener = (v: Context<unknown>) -> ()
 
 -- FUNCTION TYPES
-type State<T = unknown> = (context: Context<T>) -> (() -> ())?
-type Interaction<T = unknown, K = unknown> = (context: Context<T>, other_context: Context<K>) -> ()
+type State<T = unknown> = (contextData: T) -> ()
 
 -- TABLE TYPES
 type Context<T> = {
-	_entity: EntityID,
+	data: T,
 	_active: boolean,
-	_data: T,
 }
 
 type StateManagerConfig<T> = {
-	entity: EntityID,
 	states: { [string]: State<T> },
 	initialState: string,
-	initialData: T,
+	initialData: { T },
 }
 
 type StateManagerInfo = {
 	_runningThread: thread?,
-	_cleanupFn: (() -> ())?,
 	_availableStates: { [string]: true },
 	_currentStateName: string,
 	_context: Context<unknown>?,
-	_on_trans_ls: {},
+	_on_trans_ls: { OnTransitionListener },
 }
 
 type StateManager = StateManagerInfo & {
@@ -37,13 +30,10 @@ type StateManager = StateManagerInfo & {
 	__index: StateManager,
 
 	-- CONSTRUCTOR
-	init: (content: { [string]: unknown }?) -> StateManager,
-
-	-- INTERACTION FUNCTIONS
-	registerNewInteraction: (stateA: string, stateB: string, interaction_callback: Interaction<>) -> Disconnect,
+	init: (StateManagerConfig: StateManagerConfig<unknown>) -> StateManager,
 
 	-- MAIN FUNCTIONS
-	transition: <T>(self: StateManager, state_name: string, state_callback: State<T>, new_data: T) -> (),
+	transition: <T>(self: StateManager, state_name: string) -> (),
 	update: (self: StateManager, new_data: { [string]: unknown }) -> (),
 	destroy: (self: StateManager) -> (),
 
@@ -74,18 +64,6 @@ local function verifyInputStates(states: { [string]: State<> }): ()
 	return states
 end
 
---[[local function verifyInputInteractions(interactions: { [string]: Interaction }): ()
-	if type(interactions) ~= "table" then
-		error(`{interactions} must of type table and not nil.`)
-	end
-	for k, v in interactions do
-		if type(k) ~= "string" or type(v) ~= "function" then
-			error(`{k} must be of type string and {v} must be of type function.`)
-		end
-	end
-	return interactions
-end]]
-
 local function verifyInitial(initial: string, states: { [string]: State<> }): ()
 	if type(initial) ~= "string" or not states[initial] then
 		error("initial state must be a string and recorded in states.")
@@ -103,13 +81,11 @@ end
 function StateManager.init(StateConfig: StateManagerConfig<unknown>): StateManager
 	local self = setmetatable({}, StateManager) :: StateManagerInfo
 	self._runningThread = nil
-	self._cleanupFn = nil
 	self._availableStates = verifyInputStates(StateConfig.states)
 	self._currentStateName = verifyInitial(StateConfig.initialState, StateConfig.states)
 	self._context = {
-		_entity = StateConfig.entity,
+		data = StateConfig.initialData or {},
 		_active = true,
-		_data = StateConfig.initialData or {},
 	}
 
 	self._on_trans_ls = {}
@@ -124,23 +100,13 @@ end
 	@param target_data? -- main data to modify (Position, Rotation, etc.), could be nil.
 	@return ()
 ]=]
-function StateManager:transition<T>(state_name: string, target_data: T?): ()
-	target_data = target_data or {}
-
+function StateManager:transition<T>(state_name: string): ()
 	if not self._context._active then
 		error("cannot transition to new state: concurrency control.")
 	end
 
 	if not self._availableStates[state_name] then
 		error(`target state ({state_name}) is not recorded in finite state machine.`)
-	end
-
-	if self._cleanupFn then
-		local succ, err = pcall(self._cleanupFn)
-		if not succ then
-			warn(`error when running cleanup function of state {self._currentStateName}: {err}`)
-		end
-		self._cleanupFn = nil
 	end
 
 	if self._runningThread then
@@ -150,11 +116,8 @@ function StateManager:transition<T>(state_name: string, target_data: T?): ()
 
 	local state_callback = self._availableStates[state_name] :: State<T>
 	self._currentStateName = state_name
-	self._context._data = target_data
 	self._context._active = true
-	self._runningThread = task.spawn(function()
-		self._cleanupFn = state_callback(self._context)
-	end)
+	self._runningThread = task.spawn(state_callback, self._context.data)
 
 	FireListener(self._on_trans_ls, self._context)
 end
@@ -188,7 +151,6 @@ function StateManager:destroy(): ()
 		task.cancel(self._runningThread)
 	end
 	self._runningThread = nil
-	self._cleanupFn = nil
 	self._currentStateName = nil
 	self._context = nil
 end
