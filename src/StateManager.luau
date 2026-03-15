@@ -1,8 +1,9 @@
 -- PRIMITIVE TYPES
-type EntityId = string | number
+type EntityID = string | number
 
 -- CALLBACK-ASSOCIATED TYPES
 type Disconnect = () -> ()
+type OnTransitionListener = (v: Context<unknown>) -> ()
 
 -- FUNCTION TYPES
 type State<T = unknown> = (context: Context<T>) -> ()
@@ -10,17 +11,16 @@ type Interaction<T = unknown, K = unknown> = (context: Context<T>, other_context
 
 -- TABLE TYPES
 type Context<T> = {
-	_entity: EntityId,
+	_entity: EntityID,
 	_active: boolean,
 	_data: T,
-	content: { [string]: unknown },
 }
 
-type StateManagerConfig = {
-	entity_id: EntityId,
-	content: { [string]: unknown },
-	states: { [string]: State<unknown> },
-	initial: string,
+type StateManagerConfig<T> = {
+	entity: EntityID,
+	states: { [string]: State<T> },
+	initialState: string,
+	initialData: T,
 }
 
 type StateManagerInfo = {
@@ -36,7 +36,7 @@ type StateManager = {
 	__index: StateManager,
 
 	-- NEW
-	init: (ent: EntityId, content: { [string]: unknown }?) -> StateManager,
+	init: (content: { [string]: unknown }?) -> StateManager,
 
 	-- INTERACTION FUNCTIONS
 	registerNewInteraction: (stateA: string, stateB: string, interaction_callback: Interaction<>) -> Disconnect,
@@ -47,10 +47,18 @@ type StateManager = {
 	destroy: (self: StateManager) -> (),
 
 	-- EVENT/lISTENERS
+	onTransition: (self: StateManager, callback: (new_state_context: Context<unknown>) -> ()) -> Disconnect,
 }
 
 local StateManager = {}
 StateManager.__index = StateManager
+
+-- LISTENER FUNCS
+local function FireListener(listeners: { [number]: OnTransitionListener }, context: Context<unknown>): ()
+	for i = 1, #listeners do
+		listeners[i](context)
+	end
+end
 
 -- VERIFICATION FUNCS
 local function verifyInputStates(states: { [string]: State<> }): ()
@@ -88,18 +96,21 @@ end
     @function init
     @within StateManager
 
-    @param entity_id -- string or number for the entity this state machine is towards.
-    @param content -- the context content that the states will access and modify (Health, MaxHealth, etc.)
+    @param StateManagerConfig -- a dictionary that contains the necessary information to initialize the StateManager, including states, initialState, and initialData.
 	@return StateManager
 ]=]
-function StateManager.init(StateConfig: StateManagerConfig): StateManager
+function StateManager.init(StateConfig: StateManagerConfig<unknown>): StateManager
 	local self = setmetatable({}, StateManager) :: StateManagerInfo
 	self._runningThread = nil
 	self._availableStates = verifyInputStates(StateConfig.states)
-	self._currentStateName = verifyInitial(StateConfig.initial, StateConfig.states)
-	self._context = { _entity = StateConfig.entity_id, _active = false, _data = {}, _content = StateConfig.content }
-	self._ls = {}
+	self._currentStateName = verifyInitial(StateConfig.initialState, StateConfig.states)
+	self._context = {
+		_entity = StateConfig.entity,
+		_active = false,
+		_data = StateConfig.initialData or {},
+	}
 
+	self._on_trans_ls = {}
 	return self
 end
 
@@ -129,6 +140,8 @@ function StateManager:transition<T>(state_name: string, target_data: T?): ()
 	self._context._data = target_data
 	self._context._active = true
 	self._runningThread = task.spawn(state_callback, self._context)
+
+	FireListener(self._on_trans_ls, self._context)
 end
 
 --[=[
@@ -139,8 +152,8 @@ end
 	@return ()
 ]=]
 function StateManager:update(new_data: { [string]: unknown }): ()
-	if not self._context._active then
-		error("cannot update new_data")
+	if self._context._active then
+		error("cannot update new_data: concurrency control.")
 	end
 	for k, v in new_data do
 		self._context._data[k] = v
@@ -160,6 +173,33 @@ function StateManager:destroy(): ()
 	self._runningThread = nil
 	self._currentStateName = nil
 	self._context = nil
+end
+
+--[=[
+    @function onTransition
+    @within StateManager
+
+	@param callback -- callback function that runs when a transition to a new state happens. takes in the new_state_context as a parameter.
+
+	@return ()
+]=]
+function StateManager:onTransition(fn: (new_state_context: Context<unknown>) -> ()): Disconnect
+	local ls: { OnTransitionListener } = self._on_trans_ls
+	table.insert(ls, fn)
+	local running: boolean = true
+	return function()
+		if not running then
+			return
+		end
+		running = false
+		for i = #ls, 1, -1 do
+			if ls[i] == fn then
+				ls[i] = ls[#ls]
+				ls[#ls] = nil
+				break
+			end
+		end
+	end
 end
 
 return StateManager :: StateManager
