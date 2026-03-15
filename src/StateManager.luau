@@ -165,6 +165,8 @@ end
 
     @param new_data -- dictionary of certain contents to modify
 	@return ()
+
+	@note this function adds new data, if the inputted data is already existent, it will overwrite it.
 ]=]
 function StateManager:update(new_data: { [string]: unknown }): ()
 	if not self._context._active then
