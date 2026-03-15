@@ -8,7 +8,7 @@
 race conditions, I have implemented a CancellationToken design that is meant to keep track of asynchrounous functions and soft kill. Although unfinished, it can still operate basic tasks such as initiating, transitioning state-to-state and
 updating data. However, this model is restrictive when it comes to death states, and is somewhat a less flexible design as it requires more user input than usual.
 
-**Design sheet is within the src/Design folder and example script is shown in src/Example. The module itself is packed into a single script.**
+**Design sheet is within the src/Design folder and example script is shown in src/Example. The module itself is packed into a single script. The design is of type .jam aka Figjam.**
 
 # License
 <p align="center">
