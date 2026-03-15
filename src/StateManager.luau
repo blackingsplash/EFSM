@@ -133,7 +133,7 @@ function StateManager:transition<T>(state_name: string, target_data: T?): ()
 	end
 
 	if not self._availableStates[state_name] then
-		error("state is not recorded in finite state machine.")
+		error(`target state ({state_name}) is not recorded in finite state machine.`)
 	end
 
 	if self._cleanupFn then
