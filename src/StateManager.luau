@@ -38,7 +38,7 @@ type StateManager = StateManagerInfo & {
 	destroy: (self: StateManager) -> (),
 
 	-- EVENT/lISTENERS
-	onTransition: (self: StateManager, callback: (new_state_context: Context<unknown>) -> ()) -> Disconnect,
+	onTransition: <T>(self: StateManager, callback: (new_state_context: Context<T>) -> ()) -> Disconnect,
 }
 
 local StateManager = {}
@@ -136,7 +136,7 @@ function StateManager:update(new_data: { [string]: unknown }): ()
 		error("cannot update new_data: concurrency control.")
 	end
 	for k, v in new_data do
-		self._context._data[k] = v
+		self._context.data[k] = v
 	end
 end
 
@@ -163,7 +163,7 @@ end
 
 	@return ()
 ]=]
-function StateManager:onTransition(fn: (new_state_context: Context<unknown>) -> ()): Disconnect
+function StateManager:onTransition<T>(fn: (new_state_context: Context<T>) -> ()): Disconnect
 	local ls: { OnTransitionListener } = self._on_trans_ls
 	table.insert(ls, fn)
 	local running: boolean = true
