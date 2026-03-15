@@ -144,8 +144,8 @@ function StateManager:transition<T>(state_name: string, target_data: T?): ()
 	end
 
 	if self._runningThread then
-		self._context._active = false
-		pcall(task.cancel, self._runningThread)
+		self._context._active = true
+		task.cancel(self._runningThread)
 	end
 
 	local state_callback = self._availableStates[state_name] :: State<T>
