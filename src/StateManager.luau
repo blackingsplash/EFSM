@@ -121,7 +121,6 @@ end
     @within StateManager
 
     @param state_name -- target state_name to change to
-    @param state_callback -- basically the function that the state will run to modify. takes in a target_data and a context parameters.
 	@param target_data? -- main data to modify (Position, Rotation, etc.), could be nil.
 	@return ()
 ]=]
