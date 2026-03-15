@@ -186,6 +186,7 @@ function StateManager:destroy(): ()
 		task.cancel(self._runningThread)
 	end
 	self._runningThread = nil
+	self._cleanupFn = nil
 	self._currentStateName = nil
 	self._context = nil
 end
