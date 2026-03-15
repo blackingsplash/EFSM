@@ -35,7 +35,7 @@ type StateManager = {
 	-- METAMETHOD
 	__index: StateManager,
 
-	-- NEW
+	-- CONSTRUCTOR
 	init: (content: { [string]: unknown }?) -> StateManager,
 
 	-- INTERACTION FUNCTIONS
