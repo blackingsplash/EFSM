@@ -12,5 +12,5 @@ updating data. However, this model is restrictive when it comes to death states,
 
 # License
 <p align="center">
-  EFSM is released under the <a href="LICENSE.md">GPL License</a>.
+  EFSM is released under the <a href="LICENSE.md">MIT License</a>.
 </p>
