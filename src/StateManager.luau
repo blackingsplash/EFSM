@@ -165,7 +165,7 @@ end
 ]=]
 function StateManager:onTransition<T>(fn: (new_state_context: Context<T>) -> ()): Disconnect
 	local ls: { OnTransitionListener } = self._on_trans_ls
-	table.insert(ls, fn)
+	ls[#ls + 1] = fn
 	local running: boolean = true
 	return function()
 		if not running then
