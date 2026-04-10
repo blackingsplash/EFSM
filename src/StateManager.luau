@@ -45,7 +45,7 @@ local StateManager = {}
 StateManager.__index = StateManager
 
 -- LISTENER FUNCS
-local function FireListener(listeners: { [number]: OnTransitionListener }, context: Context<unknown>): ()
+local function FireListener(listeners: { OnTransitionListener }, context: Context<unknown>): ()
 	for i = 1, #listeners do
 		listeners[i](context)
 	end
